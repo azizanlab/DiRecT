@@ -87,7 +87,15 @@ Output:
 ## ✏️ Citation 
 If you find our code or paper useful for your research, please consider citing our work:
 ```
-add bibitex citation  xxxxxxxxxxxxxxxxxx
+@misc{giaretta2026directsafediffusionbasedplanning,
+      title={DiRecT: Safe Diffusion-Based Planning via Receding-Horizon Denoising}, 
+      author={Paolo Giaretta and Zeyang Li and Navid Azizan},
+      year={2026},
+      eprint={2606.15359},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2606.15359}, 
+}
 ```
 
 ## ↩ Acknowledgement

@@ -1,0 +1,22 @@
+obstacle_type: broad
+sampling_steps: 256
+time_discretization: uniform
+time_discretization_kwargs:
+  prior_time_offset: 0.001
+sampler_interpolation_coeff: 1.0
+env_objective: []
+env_constraints:
+  - dynamics
+  - ellipses
+proxy_objective_value_weight: 2.0
+proxy_constraint_penalty_weight: 0.1
+constraint_margin: 0.1 # Reduced constraint margin for stability in narrow case
+policy_kwargs:
+  use_cbfs: false
+  cbf_alpha: 0.9
+  relaxation_steps_at_source: 0
+  relaxation_steps_at_target: 200
+  learning_rate: 0.45
+  initial_penalty: 0.025
+  final_penalty: 0.154
+  guidance_start_fraction: 0.5

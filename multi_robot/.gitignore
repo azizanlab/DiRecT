@@ -1,0 +1,43 @@
+# Caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Python packaging
+*.egg-info/
+build/
+dist/
+
+# Experiments, logs, and run outputs
+results/
+logs/
+scripts/inference/results/
+scripts/inference/data_trained_models/
+
+# Downloaded / generated data
+data_trajectories/
+data_trained_models/
+*.tar.xz
+
+# Mujoco
+MUJOCO_LOG.TXT
+
+# Notebooks
+*.ipynb
+
+# Claude
+.claude/
+
+# Slurm
+*.out
+*.err
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Wandb
+wandb/

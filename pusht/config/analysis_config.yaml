@@ -1,0 +1,140 @@
+# -------------------
+# ANALYSIS CONFIG
+# -------------------
+
+# List of data directories to process. The script will loop through each directory.
+log_paths:
+  - "logs/tests/event_logs/eval_runs-260421_225826-benchmark-DP.log"
+  - "logs/tests/event_logs/eval_runs-260421_225927-benchmark-CD_DPP.log"
+  - "logs/tests/event_logs/eval_runs-260421_230253-benchmark-DP.log"
+  - "logs/tests/event_logs/eval_runs-260421_230456-benchmark-CD_DPP.log"
+  - "logs/tests/event_logs/eval_runs-260421_230556-benchmark-CD_DPP_PS.log"
+  - "logs/tests/event_logs/eval_runs-260421_230852-benchmark-CD_LB.log"
+  - "logs/tests/event_logs/eval_runs-260421_230954-benchmark-CD_LB_PS.log"
+  - "logs/tests/event_logs/eval_runs-260421_231251-benchmark-PCD_DPP.log"
+  - "logs/tests/event_logs/eval_runs-260421_231421-benchmark-PCD_DPP_PS.log"
+  - "logs/tests/event_logs/eval_runs-260421_231742-benchmark-PCD_LB.log"
+  - "logs/tests/event_logs/eval_runs-260421_231913-benchmark-PCD_LB_PS.log"
+  - "logs/tests/event_logs/eval_runs-260421_232234-benchmark-MPC_LB_PGD.log"
+  - "logs/tests/event_logs/eval_runs-260422_182556-sweep_mpc_pgd_scl-MPC_LB_PGD-scl1e-5.log"
+  - "logs/tests/event_logs/eval_runs-260422_182557-sweep_pcd_scl-PCD_LB-scl1e-3.log"
+  - "logs/tests/event_logs/eval_runs-260422_182613-benchmark-CD_DPP.log"
+  - "logs/tests/event_logs/eval_runs-260422_182806-benchmark-CD_DPP_PS.log"
+  - "logs/tests/event_logs/eval_runs-260422_183349-benchmark-CD_LB.log"
+  - "logs/tests/event_logs/eval_runs-260422_183553-benchmark-CD_LB_PS.log"
+  - "logs/tests/event_logs/eval_runs-260422_184147-benchmark-PCD_DPP.log"
+  - "logs/tests/event_logs/eval_runs-260422_184427-benchmark-PCD_DPP_PS.log"
+  - "logs/tests/event_logs/eval_runs-260422_185113-benchmark-PCD_LB.log"
+  - "logs/tests/event_logs/eval_runs-260422_185353-benchmark-PCD_LB_PS.log"
+  - "logs/tests/event_logs/eval_runs-260422_190038-benchmark-MPC_LB_PGD.log"
+  - "logs/tests/event_logs/eval_runs-260422_190424-benchmark-MPC_DPP_PGD.log"
+  - "logs/tests/event_logs/eval_runs-260422_200711-sweep_pcd_scl-PCD_LB-scl5e-3.log"
+  - "logs/tests/event_logs/eval_runs-260422_200840-sweep_mpc_pgd_scl-MPC_LB_PGD-scl5e-5.log"
+  - "logs/tests/event_logs/eval_runs-260422_200840-sweep_mpc_proj_steps-MPC_LB_PGD-proj1-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260422_210856-sweep_mpc_proj_steps-MPC_LB_PGD-proj1-scl0.0005.log"
+  - "logs/tests/event_logs/eval_runs-260422_214830-sweep_pcd_scl-PCD_LB-scl7e-3.log"
+  - "logs/tests/event_logs/eval_runs-260422_215145-sweep_mpc_pgd_scl-MPC_LB_PGD-scl7e-5.log"
+  - "logs/tests/event_logs/eval_runs-260422_220905-sweep_mpc_proj_steps-MPC_LB_PGD-proj1-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260422_230914-sweep_mpc_proj_steps-MPC_LB_PGD-proj2-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260422_233011-sweep_pcd_scl-PCD_LB-scl0.01.log"
+  - "logs/tests/event_logs/eval_runs-260422_233445-sweep_mpc_pgd_scl-MPC_LB_PGD-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260423_001135-sweep_mpc_proj_steps-MPC_LB_PGD-proj2-scl0.0005.log"
+  - "logs/tests/event_logs/eval_runs-260423_011145-sweep_pcd_scl-PCD_LB-scl0.02.log"
+  - "logs/tests/event_logs/eval_runs-260423_011354-sweep_mpc_proj_steps-MPC_LB_PGD-proj2-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260423_011745-sweep_mpc_pgd_scl-MPC_LB_PGD-scl0.0002.log"
+  - "logs/tests/event_logs/eval_runs-260423_021615-sweep_mpc_proj_steps-MPC_LB_PGD-proj4-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260423_025255-sweep_pcd_scl-PCD_LB-scl0.03.log"
+  - "logs/tests/event_logs/eval_runs-260423_025952-sweep_mpc_pgd_scl-MPC_LB_PGD-scl0.0003.log"
+  - "logs/tests/event_logs/eval_runs-260423_033021-sweep_mpc_proj_steps-MPC_LB_PGD-proj4-scl0.0005.log"
+  - "logs/tests/event_logs/eval_runs-260423_043410-sweep_pcd_scl-PCD_LB-scl0.04.log"
+  - "logs/tests/event_logs/eval_runs-260423_044218-sweep_mpc_pgd_scl-MPC_LB_PGD-scl0.0004.log"
+  - "logs/tests/event_logs/eval_runs-260423_044436-sweep_mpc_proj_steps-MPC_LB_PGD-proj4-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260423_055857-sweep_mpc_proj_steps-MPC_LB_PGD-proj8-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260423_061541-sweep_pcd_scl-PCD_LB-scl0.05.log"
+  - "logs/tests/event_logs/eval_runs-260423_062424-sweep_mpc_pgd_scl-MPC_LB_PGD-scl0.0005.log"
+  - "logs/tests/event_logs/eval_runs-260423_073623-sweep_mpc_proj_steps-MPC_LB_PGD-proj8-scl0.0005.log"
+  - "logs/tests/event_logs/eval_runs-260423_075647-sweep_pcd_scl-PCD_LB-scl0.07.log"
+  - "logs/tests/event_logs/eval_runs-260423_080620-sweep_mpc_pgd_scl-MPC_LB_PGD-scl0.0007.log"
+  - "logs/tests/event_logs/eval_runs-260423_091351-sweep_mpc_proj_steps-MPC_LB_PGD-proj8-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260423_093855-sweep_pcd_scl-PCD_LB-scl0.1.log"
+  - "logs/tests/event_logs/eval_runs-260423_094806-sweep_mpc_pgd_scl-MPC_LB_PGD-scl0.001.log"
+  - "logs/tests/event_logs/eval_runs-260423_105135-sweep_mpc_proj_steps-MPC_LB_PGD-proj12-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260423_111846-sweep_pcd_scl-PCD_LB-scl0.2.log"
+  - "logs/tests/event_logs/eval_runs-260423_113003-sweep_mpc_pgd_scl-MPC_LB_PGD-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260423_125228-sweep_mpc_proj_steps-MPC_LB_PGD-proj12-scl0.0005.log"
+  - "logs/tests/event_logs/eval_runs-260423_125806-sweep_pcd_scl-PCD_DPP-scl1e-2.log"
+  - "logs/tests/event_logs/eval_runs-260423_131206-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl1e-4.log"
+  - "logs/tests/event_logs/eval_runs-260423_143743-sweep_pcd_scl-PCD_DPP-scl5e-2.log"
+  - "logs/tests/event_logs/eval_runs-260423_145332-sweep_mpc_proj_steps-MPC_LB_PGD-proj12-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260423_145404-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl5e-4.log"
+  - "logs/tests/event_logs/eval_runs-260423_161714-sweep_pcd_scl-PCD_DPP-scl7e-2.log"
+  - "logs/tests/event_logs/eval_runs-260423_163549-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl7e-4.log"
+  - "logs/tests/event_logs/eval_runs-260423_165438-sweep_mpc_proj_steps-MPC_LB_PGD-proj16-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260423_175705-sweep_pcd_scl-PCD_DPP-scl0.1.log"
+  - "logs/tests/event_logs/eval_runs-260423_181750-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl0.001.log"
+  - "logs/tests/event_logs/eval_runs-260423_191902-sweep_mpc_proj_steps-MPC_LB_PGD-proj16-scl0.0005.log"
+  - "logs/tests/event_logs/eval_runs-260423_193650-sweep_pcd_scl-PCD_DPP-scl0.2.log"
+  - "logs/tests/event_logs/eval_runs-260423_195920-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260423_211616-sweep_pcd_scl-PCD_DPP-scl0.3.log"
+  - "logs/tests/event_logs/eval_runs-260423_214107-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl0.003.log"
+  - "logs/tests/event_logs/eval_runs-260423_214320-sweep_mpc_proj_steps-MPC_LB_PGD-proj16-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260423_225622-sweep_pcd_scl-PCD_DPP-scl0.4.log"
+  - "logs/tests/event_logs/eval_runs-260423_232329-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl0.004.log"
+  - "logs/tests/event_logs/eval_runs-260424_000801-sweep_mpc_proj_steps-MPC_LB_PGD-proj24-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260424_003539-sweep_pcd_scl-PCD_DPP-scl0.5.log"
+  - "logs/tests/event_logs/eval_runs-260424_010528-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl0.005.log"
+  - "logs/tests/event_logs/eval_runs-260424_021452-sweep_pcd_scl-PCD_DPP-scl0.7.log"
+  - "logs/tests/event_logs/eval_runs-260424_024735-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl0.007.log"
+  - "logs/tests/event_logs/eval_runs-260424_031903-sweep_mpc_proj_steps-MPC_LB_PGD-proj24-scl0.0005.log"
+  - "logs/tests/event_logs/eval_runs-260424_035416-sweep_pcd_scl-PCD_DPP-scl1.log"
+  - "logs/tests/event_logs/eval_runs-260424_042939-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl0.01.log"
+  - "logs/tests/event_logs/eval_runs-260424_053404-sweep_pcd_scl-PCD_DPP-scl2.log"
+  - "logs/tests/event_logs/eval_runs-260424_061138-sweep_mpc_pgd_scl-MPC_DPP_PGD-scl0.02.log"
+  - "logs/tests/event_logs/eval_runs-260424_063023-sweep_mpc_proj_steps-MPC_LB_PGD-proj24-scl0.002.log"
+  - "logs/tests/event_logs/eval_runs-260424_094156-sweep_mpc_proj_steps-MPC_LB_PGD-proj32-scl0.0001.log"
+  - "logs/tests/event_logs/eval_runs-260424_133952-sweep_mpc_proj_steps-MPC_LB_PGD-proj32-scl0.0005.log"
+  # #
+  # - "logs/tests/event_logs/eval_runs-260421_224458-DEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_211153-DEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_210600-DEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_210208-DEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_201332-DEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_200148-BASE.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_193249-BASE.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_192249-DEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_191539-MPCDEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_190754-MPCDEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_185519-MPCDEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_184223-DEBUG.log" # 2 DEBUG
+  # - "logs/tests/event_logs/eval_runs-260421_183605-DIFFUSER.log" # 2 DEBUG
+
+# Switches for plotting and saving figures/data.
+switches:
+  plot_trajectories: true
+  plot_velocity_stats: true
+  save_plots: true
+
+  save_stats_json: true
+
+# General constants and parameters for the analysis.
+constants:
+  EPS: 1.0e-6
+  VEL_TOL: 5.0e-4  # Tolerance for velocity checks
+  DT: 0.01  # time step size
+  SAFE_DIST: 30.0
+  ACTION_HORIZON: 8
+  MAX_ACTION: [511.9651, 511.9563]
+  MIN_ACTION: [0.0091, 0.2790]
+  # DEFAULT_MAX_VEL: 6.2  # Default maximum velocity threshold (80% of max action)
+  DEFAULT_MAX_VEL: 8.4  # (90% of max action)
+  # DEFAULT_MAX_VEL: 10.7  # (95% of max action)
+  VEL_HIST_QUANTILES: [0.75, 0.8, 0.9, 0.95, 0.99]
+
+# Plotting-specific parameters.
+plotting:
+  # Trajectory plotting settings
+  traj_plot_xlim: [0, 550]
+  traj_plot_ylim: [0, 550]
+  traj_plot_h_end: 48
+  # Velocity histogram settings
+  vel_hist_bins: 100

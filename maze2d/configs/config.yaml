@@ -1,0 +1,77 @@
+seed: 0
+log_folder: logs
+exp_name: debug
+overwrite: true
+
+dataset:
+  env_name: maze2d-large-v1
+  horizon: 384
+  normalizer: LimitsNormalizer
+  max_path_length: 40000
+  max_n_episodes: 1200
+  termination_penalty: 0.0
+  preprocess_fns:
+    - maze2d_set_terminals
+
+diffusion:
+  prediction_type: data
+  lr: 1.0e-3
+  scheduler_T_max: 10000
+  noise_schedule_kwargs: {}
+  antithetic_sampling: false
+  clip_denoised: true
+  dim: 32
+  dim_mults:
+    - 1
+    - 4
+    - 8
+
+train:
+  accelerator: auto
+  devices: 1
+  n_train_steps: 2000000
+  gradient_accumulation_steps: 1
+  log_every_n_steps: 10
+  batch_size: 32
+  num_workers: 0
+  enable_checkpointing: true
+  ckpt_save_freq: 50000
+  ema_decay: 0.995
+  render_freq: 10000
+  render_n_samples_per_condition: 5
+  render_n_batches: 3
+  compile_fullgraph: false
+  compile_dynamic: false
+  compile_disable: false
+
+eval:
+  num_random_repeats: 10
+  device: cuda
+  use_float64: true
+  fixed_start: true
+  verbose_saving: false
+  save_generation: false
+  save_trajectories: false
+  batch_size: 1
+  dynamics_path: null
+  weights_path: null  # set via --weights-path or replace with path to checkpoint
+
+policy:
+  obstacle_type: broad
+  sampling_steps: 32
+  time_discretization: uniform
+  time_discretization_kwargs:
+    prior_time_offset: 0.001
+  sampler_interpolation_coeff: 1.0
+  env_objective:
+    - distance
+  env_constraints:
+    - ellipses
+    - dynamics
+    - input_saturation
+  proxy_objective_value_weight: 2.0
+  proxy_constraint_penalty_weight: 0.1
+  constraint_margin: 0.0
+
+
+

@@ -1,0 +1,208 @@
+defaults:
+  - _self_
+  - task: H16_pusht_lowdim_fix_init.yaml
+
+name: eval_pcdiff_cost_coupling
+_target_: diffusion_policy.workspace.eval_pcdiff_pcd_workspace.EvalPCDiffWorkspace
+
+obs_dim: ${task.obs_dim}
+action_dim: ${task.action_dim}
+keypoint_dim: ${task.keypoint_dim}
+task_name: ${task.name}
+exp_name: "eval-PushT-PCD-H16-O2-A8"
+
+n_init_states: 50
+trial: 200
+group_size: 2
+
+## Projection
+projector: "max_vel_admm"   # ADMM projector
+proj_profile_key: "max_vel"
+v_max: 8.4 # 90%
+
+## Coupling
+guider: 'coupling'
+# guider: 'coupling_ps'
+stp: 1
+scl: 2
+### Cost function
+# cost_func_key: "sum_log_l2"
+cost_func_key: "dpp"
+
+## Diffusion
+diffusion_checkpoint: "data/pretrained/diffusion/dp-H16O2A8D32.ckpt"
+n_diffusion_steps: 32
+
+output_dir: 'logs/tests/pusht_pcd_output/H16O2A8D${policy.num_inference_steps}/${proj_profile_key}-max_v${v_max}-${cost_func_key}/max_stp${task.env_runner.max_steps}/init_st${n_init_states}-${projector}-${guider}-max_v${v_max}-stp${stp}-scl${scl}-t${trial}'
+log_pth: "${output_dir}/eval_runs.log"
+
+device: 'cuda:0'
+seed: 42
+
+horizon: 16
+n_obs_steps: 2
+n_action_steps: 8
+n_latency_steps: 0
+past_action_visible: False
+keypoint_visible_rate: 1.0
+obs_as_local_cond: False
+obs_as_global_cond: True
+pred_action_steps_only: False
+
+policy:
+  _target_: diffusion_policy.policy.diffusion_unet_lowdim_proj_coup_policy.DiffusionUnetLowdimProjCoupPolicy
+  _recursive_: true
+  group_size: ${group_size}
+
+  guide:
+    _target_: diffusion_policy.model.guide.cost_guide.CostGuide
+    cost_func: null
+    cost_func_param:
+      alpha: 0.1
+      # decay_rate: 10.0
+
+  projector: # ADMM projector
+    _target_: diffusion_policy.model.projection.projection_operator.ADMMProjectionOperatorCUDAGraph
+    rho: 6.0          ## penalty for the augmented Lagrangian
+    max_iter: 250
+    tol: 2e-4         ## tolerance for convergence
+    decomp: 'lu'
+    # decomp: 'cholesky'
+    convergence_check: True
+    # convergence_check: False
+    verbose: False
+
+
+  project_params:
+    delta_t: 0.01
+    vel_max: ${v_max}
+
+  n_guide_steps: ${stp}
+  grad_scale: ${scl}
+  t_stopgrad: 2
+  threshold: 1.0e-8
+  point_estimate: ${eval:'"${guider}".endswith("ps")'}
+
+  model:
+    _target_: diffusion_policy.model.diffusion.conditional_unet1d.ConditionalUnet1D
+    input_dim: "${eval: ${task.action_dim} if ${obs_as_local_cond} or ${obs_as_global_cond} else ${task.obs_dim} + ${task.action_dim}}"
+    local_cond_dim: "${eval: ${task.obs_dim} if ${obs_as_local_cond} else None}"
+    global_cond_dim: "${eval: ${task.obs_dim}*${n_obs_steps} if ${obs_as_global_cond} else None}"
+    diffusion_step_embed_dim: 256
+    down_dims: [256, 512, 1024]
+    kernel_size: 5
+    n_groups: 8
+    cond_predict_scale: True
+
+  noise_scheduler:
+    _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+    num_train_timesteps: ${n_diffusion_steps}
+    beta_start: 0.0001
+    beta_end: 0.02
+    beta_schedule: squaredcos_cap_v2
+    variance_type: fixed_small # Yilun's paper uses fixed_small_log instead, but easy to cause Nan
+    clip_sample: True # required when predict_epsilon=False
+    prediction_type: epsilon # or sample
+
+  horizon: ${horizon}
+  obs_dim: ${obs_dim}
+  action_dim: ${action_dim}
+  n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
+  n_obs_steps: ${n_obs_steps}
+  num_inference_steps: ${n_diffusion_steps}
+  # num_inference_steps: 32
+  obs_as_local_cond: ${obs_as_local_cond}
+  obs_as_global_cond: ${obs_as_global_cond}
+  pred_action_steps_only: ${pred_action_steps_only}
+  oa_step_convention: True
+
+  # scheduler.step params
+  # predict_epsilon: True
+
+ema:
+  _target_: diffusion_policy.model.diffusion.ema_model.EMAModel
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_value: 0.0
+  max_value: 0.9999
+
+dataloader:
+  batch_size: 2048
+  num_workers: 1
+  shuffle: True
+  # accelerate cpu-gpu transfer
+  pin_memory: True
+  # don't kill worker process afte each epoch
+  persistent_workers: True
+
+val_dataloader:
+  batch_size: 2048
+  num_workers: 1
+  shuffle: False
+  # accelerate cpu-gpu transfer
+  pin_memory: True
+  # don't kill worker process afte each epoch
+  persistent_workers: True
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 1.0e-5
+  betas: [0.95, 0.999]
+  eps: 1.0e-8
+  weight_decay: 1.0e-6
+
+training:
+  device: ${device}
+  seed: ${seed}
+  debug: False
+  resume: True
+  # optimization
+  lr_scheduler: cosine
+  lr_warmup_steps: 500
+  num_epochs: 2000
+  gradient_accumulate_every: 1
+  use_ema: True
+  # training loop control
+  # in epochs
+  rollout_every: 5
+  checkpoint_every: 10
+  val_every: 1
+  sample_every: 5
+  # steps per epoch
+  max_train_steps: 30000
+  max_val_steps: null
+  # misc
+  tqdm_interval_sec: 1.0
+
+logging:
+  project: pcdiff_pusht
+  resume: True
+  mode: offline
+  # mode: online
+  name: PCD-${now:%Y.%m.%d-%H.%M.%S}_${name}_${task_name}
+  tags: ["${name}", "${task_name}", "${exp_name}"]
+  id: null
+  group: null
+
+checkpoint:
+  topk:
+    monitor_key: train_loss
+    mode: min
+    k: 10
+    format_str: 'epoch={epoch:04d}-train_loss={train_loss:.5f}.ckpt'
+  save_last_ckpt: True
+  save_last_snapshot: False
+
+multi_run:
+  run_dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+  wandb_name_base: ${now:%Y.%m.%d-%H.%M.%S}_${name}_${task_name}
+
+hydra:
+  job:
+    override_dirname: ${name}
+  run:
+    dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+  sweep:
+    dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+    subdir: ${hydra.job.num}

@@ -1,0 +1,27 @@
+name: direct-maze2d
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    ## Adjust the cuda version and torch versions based on your system configuration. 
+    - --extra-index-url https://download.pytorch.org/whl/cu124
+    - torch==2.6.0+cu124
+    - torchvision==0.21.0+cu124
+    - torchaudio==2.6.0+cu124
+    - casadi==3.7.2
+    - einops==0.8.2
+    - gymnasium==1.2.3
+    - gymnasium-robotics==1.4.2
+    - h5py==3.15.1
+    - imageio==2.37.0
+    - pyyaml>=6.0
+    - mujoco==3.4.0
+    - matplotlib==3.10.8
+    - lightning==2.6.1
+    - numpy==1.26.4
+    - tqdm==4.67.3
+    - scikit-learn==1.8.0
+    - qpth==0.0.18
+    - wandb==0.25.0

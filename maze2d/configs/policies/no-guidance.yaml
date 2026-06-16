@@ -1,0 +1,12 @@
+obstacle_type: broad
+sampling_steps: 32
+time_discretization: uniform
+time_discretization_kwargs:
+  prior_time_offset: 0.001
+sampler_interpolation_coeff: 1.0
+env_objective: []
+env_constraints: []
+proxy_objective_value_weight: 2.0
+proxy_constraint_penalty_weight: 0.1
+constraint_margin: 0.4
+policy_kwargs: {}

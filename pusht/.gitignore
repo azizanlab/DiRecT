@@ -1,0 +1,43 @@
+# Caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Python packaging
+*.egg-info/
+build/
+dist/
+
+# Experiments, logs, and run outputs
+logs/
+data/outputs/
+data/pretrained/
+data/pusht/
+
+# Mujoco
+MUJOCO_LOG.TXT
+
+# Notebooks
+*.ipynb
+
+# Claude
+.claude/
+
+# Slurm
+slurm_logs/
+*.out
+*.err
+
+# Secrets (note: do NOT use bare `env` — `diffusion_policy/env/` and `env_runner/` are source dirs)
+.env
+.env.*
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Wandb
+wandb/

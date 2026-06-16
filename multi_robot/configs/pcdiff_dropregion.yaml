@@ -1,0 +1,76 @@
+experiment:
+  name: "single_tile_dropregion"
+  num_agents: 2
+  n_inits: 3
+  runtime_limit: 60  # seconds
+  seed: 18
+  time_str: "auto"  # auto timestamp at runtime
+  render_animation: true
+
+system:
+  device: "cuda:0"
+  base_dir: "auto"  # auto resolve base project directory
+  results_dir_name: "logs"
+  trained_models_dir_name: "data_trained_models"
+  log_pth: null  # use default logger path behavior
+
+robot:
+  planar_disk_radius: 0.05
+
+environment:
+  type: "single_tile"
+  global_model_ids: [['EnvDropRegion2D-RobotPlanarDisk']]
+  agent_skeleton_l: "auto"  # auto-generate skeleton from environment
+  start_goal_config:
+    method: "random_in_env"
+    env_class_for_random: "EnvDropRegion2D"
+    margin: 0.2
+    obstacle_margin: 0.2
+
+planner:
+  multi_agent:
+    class: "DummyPlanning"
+    stagger_start_time_dt: 0
+    is_xcbs: false
+    is_ecbs: false
+    conflict_type_to_constraint_types:
+      PointConflict: [ "MultiPointConstraint" ]
+
+  single_agent:
+    class: "PCD"
+    planner_alg: "pcd"
+    horizon: 64
+    trajectory_duration: 5.0
+    n_samples: 128
+    debug: true
+    timeit: false
+    use_guide_on_extra_objects_only: false
+    n_local_inference_noising_steps: 3
+    n_local_inference_denoising_steps: 3
+    start_guide_steps_fraction: 1.0
+    n_guide_steps: 1
+    n_diffusion_steps_without_noise: 0
+    cost_func_key: "sum_log_l2"
+    cost_func_param:
+      margin_coeff: 1.9
+      radius_coeff: 6.0
+    weight_grad_cost_collision: 0.05
+    weight_grad_cost_smoothness: 0.0
+    weight_grad_cost_constraints: 0.2
+    weight_grad_cost_soft_constraints: 0.0
+    factor_num_interpolated_points_for_collision: 0
+    low_level_choose_path_from_batch_strategy: "least_collisions"
+
+  projection:
+    projector:
+      _target_: "ADMMProjectionOperatorCUDAGraph"
+      rho: 6.0
+      max_iter: 500
+      tol: 1.0e-5
+      decomp: "lu"
+      convergence_check: true
+      check_period: 200
+      verbose: false
+
+    project_params:
+      vel_max: 0.8

@@ -1,0 +1,28 @@
+# Caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Python packaging
+*.egg-info/
+*.so
+*.o
+
+# Experiments, logs, and run outputs
+logs/
+slurm_logs/
+
+# Mujoco
+MUJOCO_LOG.TXT
+panda_tmp_*.xml
+
+# Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Slurm
+*.out
+*.err
+
+# Wandb
+wandb/

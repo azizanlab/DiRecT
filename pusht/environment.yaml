@@ -1,0 +1,88 @@
+name: direct-pusht
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip=22.2.2
+  - pip:
+    # PyTorch (CUDA 12.1)
+    # Adapt the cuda and torch versions to your system.
+    - --extra-index-url https://download.pytorch.org/whl/cu121
+    - torch==2.1.2
+    - torchvision==0.16.2
+    # Core scientific
+    - numpy==1.23.3
+    - numba==0.53.1
+    - scipy==1.13.1
+    - scikit-learn==1.4.0
+    - pandas==2.2.3
+    # Image / video processing
+    - opencv-python==4.6.0.66
+    - scikit-image==0.19.3
+    - scikit-video==1.1.11
+    - imageio==2.22.0
+    - imageio-ffmpeg==0.4.7
+    - imagecodecs==2022.9.26
+    - av==13.1.0
+    - Pillow==9.2.0
+    # Config / logging
+    - hydra-core==1.2.0
+    - omegaconf==2.2.3
+    - wandb==0.13.3
+    - tensorboard==2.10.1
+    - tensorboardX==2.5.1
+    # Data storage
+    - zarr==2.12.0
+    - numcodecs==0.10.2
+    - h5py==3.7.0
+    # Deep learning utilities
+    - diffusers==0.11.1
+    - huggingface-hub==0.13.4
+    - einops==0.4.1
+    - accelerate==0.13.2
+    - datasets==2.6.1
+    # Simulation / environments
+    - gym==0.21.0
+    - pymunk==6.2.1
+    - pygame==2.1.2
+    - pybullet-svl==3.1.6.4
+    - robosuite @ https://github.com/cheng-chi/robosuite/archive/277ab9588ad7a4f4b55cf75508b44aa67ec171f0.tar.gz
+    - robomimic==0.2.0
+    - free-mujoco-py==2.1.6
+    - mujoco==3.3.4
+    - dm-control==1.0.9
+    # Geometry / visualization
+    - Shapely==1.8.4
+    - matplotlib==3.6.1
+    # Utilities
+    - tqdm==4.64.1
+    - dill==0.3.5.1
+    - click==8.0.4
+    - termcolor==2.0.1
+    - psutil==5.9.2
+    - threadpoolctl==3.1.0
+    - Cython==0.29.32
+    - ipykernel==6.16.2
+    - ipdb==0.13.9
+    - boto3==1.24.96
+    - cffi==1.15.1
+    # Parsing / functional
+    - parsimonious==0.9.0
+    - funcy==1.17
+    - lenses==0.5.0
+    - networkx==3.2.1
+    - attrs==25.3.0
+    # Caching / misc
+    - ring==0.10.1
+    - packaging==23.2
+    - pptree==3.1
+    # Projection / optimization
+    - cvxpy==1.6.6
+    - ecos==2.0.14
+    # Video / ray
+    - pytorchvideo==0.1.5
+    - ray[default,tune]==2.2.0
+    # R3M
+    - r3m @ https://github.com/facebookresearch/r3m/archive/b2334e726887fa0206962d7984c69c5fb09cceab.tar.gz
+    # Local editable install (run from pusht/ directory)
+    - -e .

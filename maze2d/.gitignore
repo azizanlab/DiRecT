@@ -1,0 +1,29 @@
+# Caches
+__pycache__/
+*.pyc
+
+# Experiments and logs
+logs/
+
+# Mujoco
+MUJOCO_LOG.TXT
+
+# Notebooks
+*.ipynb
+
+# Claude
+.claude/
+
+# Slurm
+*.out
+*.err
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Wandb
+wandb/
