@@ -1,6 +1,6 @@
 # DiRecT: Safe Diffusion-Based Planning via Receding-Horizon Denoising
 
-[![arXiv](https://img.shields.io/badge/arXiv-xxxxx-xxxxx)](https://arxiv.org/abs/xxxx.xxxxx)
+[![arXiv](https://img.shields.io/badge/arXiv-2606.15359-b31b1b.svg)](https://arxiv.org/abs/2606.15359)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [Paolo Giaretta](https://github.com/GiarettaPaolo)<sup>1</sup>
@@ -11,7 +11,7 @@
 
 This repo contains the code for training and evaluation of the _DiRecT_ benchmarks presented in the paper.
 
-## 📢 Introduction 
+## 📢 Introduction
 We introduce _DiRecT_ (**Di**ffusion-based planning via **Rec**eding-horizon denoising with **T**erminal constraints), a training-free algorithm for constrained sampling from diffusion models via stochastic optimal control (SOC). We evaluate _DiRecT_ on diverse robotic planning applications, including [maze navigation](maze2d) in Maze2D, [robotic manipulation](d3il) in D3IL, [multi-robot motion planning](multi_robot) (MRMP), and [diverse contact-rich manipulation](pusht) in PushT. Across these tasks, _DiRecT_ consistently improves constraint satisfaction and task success over existing diffusion-based planning baselines.
 
 <table>
@@ -39,7 +39,7 @@ See specific instructions for each benchmark in the respective folders:
 - Maze navigation with _test-time_ obstacle and dynamics constraints on [Maze2D](maze2d/README.md).
 - Robotic manipulation with _test-time_ obstacle and dynamics constraints on [D3IL Avoiding](d3il/README.md).
 - Multi-Robot Motion Planning with _test-time_ velocity and collision constraints on the four [MMD environments](multi_robot/README.md).
-- Diverse contact-rich manipulation with _test-time_ velocity limits on [PushT](pusht/README.md). 
+- Diverse contact-rich manipulation with _test-time_ velocity limits on [PushT](pusht/README.md).
 
 ## ⚙️ Algorithm
 We repeat a simplified version of the algorithm. Please, refer at the paper for the full derivation and implementation details.
@@ -83,17 +83,17 @@ Output:
 ```
 
 
-## ✏️ Citation 
+## ✏️ Citation
 If you find our code or paper useful for your research, please consider citing our work:
 ```
 @misc{giaretta2026directsafediffusionbasedplanning,
-      title={DiRecT: Safe Diffusion-Based Planning via Receding-Horizon Denoising}, 
+      title={DiRecT: Safe Diffusion-Based Planning via Receding-Horizon Denoising},
       author={Paolo Giaretta and Zeyang Li and Navid Azizan},
       year={2026},
       eprint={2606.15359},
       archivePrefix={arXiv},
       primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2606.15359}, 
+      url={https://arxiv.org/abs/2606.15359},
 }
 ```
 
