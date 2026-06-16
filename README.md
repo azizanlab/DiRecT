@@ -3,12 +3,11 @@
 [![arXiv](https://img.shields.io/badge/arXiv-xxxxx-xxxxx)](https://arxiv.org/abs/xxxx.xxxxx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Paolo Giaretta](https://github.com/GiarettaPaolo)<sup>1,2</sup>
+[Paolo Giaretta](https://github.com/GiarettaPaolo)<sup>1</sup>
 [Zeyang Li](https://github.com/zeyang23)<sup>1</sup>
 [Navid Azizan](https://github.com/azizanlab)<sup>1</sup>
 
 <sup>1</sup>Laboratory for Information and Decision Systems (LIDS), Massachusetts Institute of Technology (MIT); <br>
-<sup>2</sup>École Polytechnique Fédérale de Lausanne (EPFL);
 
 This repo contains the code for training and evaluation of the _DiRecT_ benchmarks presented in the paper.
 
