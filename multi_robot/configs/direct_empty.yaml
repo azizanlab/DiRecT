@@ -61,8 +61,8 @@ planner:
     weight_grad_cost_constraints: 0.2
     weight_grad_cost_soft_constraints: 0.0
     factor_num_interpolated_points_for_collision: 0
-    projector_type: "Ipopt"
-    start_projection_guidance: 0.5
+    projector_type: "JaxScpADMM"
+    start_projection_guidance: 0.5 # guidance start
     low_level_choose_path_from_batch_strategy: "least_collisions"
 
   projection:

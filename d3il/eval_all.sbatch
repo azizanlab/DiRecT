@@ -29,9 +29,9 @@ EXP=x0pred
 SEED=0
 REPEAT=100
 BATCH=1
-STEPS=32
+STEPS=32        # Sampling freq.
 STEPS_LONG=256
-REPLAN=4
+REPLAN=4        # Replan freq.
 MARGIN=0.025
 RELAXATION=0 # No relaxation (equality constraints)
 KP=0.0  # No pdi tracker (open loop over executed horizon) 
@@ -128,7 +128,7 @@ python eval.py $COMMON \
   --guidance-method primal-dual \
   --constraints \
   --n-sampling-steps $STEPS_LONG \
-  --pd-learning-rate 0.456 \
+  --pd-learning-rate 0.456 \        # Rescaled vals
   --no-pd-use-cbfs \
   --exp-name primal_dual
 
@@ -140,7 +140,7 @@ python eval.py $COMMON \
   --guidance-method augmented-lagrangian \
   --constraints \
   --n-sampling-steps $STEPS_LONG \
-  --pd-learning-rate 0.456 \
+  --pd-learning-rate 0.456 \          # Rescaled vals
   --pd-initial-penalty 1e-6 \
   --pd-final-penalty 1e-5 \
   --no-pd-use-cbfs \
@@ -165,7 +165,7 @@ python eval.py $COMMON \
   --guidance-method direct \
   --constraints \
   --dynamics-relaxation $RELAXATION \
-  --pred-control-weight 1.0 \
+  --pred-control-weight 1.0 \         # Cost seeking behavior lambda=0.028
   --pred-objective "" \
   --pred-objective-scale 10.0 \
   --guidance-last-steps 16 \
@@ -176,7 +176,7 @@ python eval.py $COMMON \
 #   --guidance-method direct \
 #   --constraints \
 #   --dynamics-relaxation $RELAXATION \
-#   --pred-control-weight 1.0 \
+#   --pred-control-weight 1.0 \         # Cost seeking behavior lambda=0.028
 #   --pred-objective distance \
 #   --pred-objective-scale 10.0 \
 #   --guidance-last-steps 16 \

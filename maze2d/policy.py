@@ -129,7 +129,9 @@ class Policy(pl.LightningModule):
         sampler_interpolation_coeff: DDIM eta (0=deterministic, 1=stochastic).
         time_discretization: Timestep spacing ("uniform", "log-noise", or "log-snr").
         time_discretization_kwargs: Extra params (e.g. prior_time_offset).
-        policy_kwargs: Algorithm-specific parameters passed to subclass.
+        policy_kwargs: Algorithm-specific parameters passed to subclass. May include
+            "ipopt_options": a dict of solver options (e.g. {"ipopt.max_iter": 200})
+            merged over the defaults for all policies that solve NLPs with IPOPT.
     """
 
     def __init__(
@@ -248,6 +250,12 @@ class Policy(pl.LightningModule):
         ## Sampler
         self.sampler = DDIMSampler(model=diffuser, interpolation_coeff=sampler_interpolation_coeff)
 
+        ## IPOPT solver options (user overrides take precedence over defaults)
+        self.ipopt_options = {
+            "ipopt.print_level": IPOPT_VERBOSE_LEVEL,
+            **policy_kwargs.get("ipopt_options", {}),
+        }
+
     def preprocess_conditions(self, conditions: Dict[Any, Any]) -> Dict[Any, Any]:
         normed_conditions = copy.deepcopy(conditions)
         apply_dict(
@@ -290,6 +298,27 @@ class Policy(pl.LightningModule):
         trajectory_data["data_estimates"] = self.env.unnormalize_chain(
             trajectory_data["data_estimates"]
         )
+
+        # Solver statistics (only present for policies that ran IPOPT solves)
+        self.add_ipopt_stats(trajectory_data)
+
+    def reset_ipopt_stats(self):
+        self._ipopt_solves = 0
+        self._ipopt_iters = 0
+        self._ipopt_failures = 0
+
+    def record_ipopt_solve(self, stats: Optional[Dict[str, Any]], failed: bool = False):
+        """Accumulate per-solve IPOPT statistics (iteration count and convergence)."""
+        self._ipopt_solves += 1
+        if stats is not None:
+            self._ipopt_iters += int(stats.get("iter_count", 0))
+            failed = failed or not stats.get("success", False)
+        self._ipopt_failures += int(failed)
+
+    def add_ipopt_stats(self, result_dict: Dict[str, Any]):
+        if getattr(self, "_ipopt_solves", 0) > 0:
+            result_dict["avg_ipopt_iters"] = self._ipopt_iters / self._ipopt_solves
+            result_dict["ipopt_failure_rate"] = self._ipopt_failures / self._ipopt_solves
 
     @torch.no_grad()
     def generate(self, conditions: Dict[Any, Any], **kwargs) -> Dict[str, Any]:
@@ -702,6 +731,7 @@ class ProjectionPolicy(Policy):
         guidance_iterations: Number of gradient steps (0 to disable).
         guidance_lr: Step size for gradient update.
         projection_start_fraction: Fraction of steps before projection begins.
+        ipopt_options: Optional dict of IPOPT solver options merged over defaults.
     """
 
     def __init__(
@@ -775,15 +805,7 @@ class ProjectionPolicy(Policy):
             "projection",
             "ipopt",
             {"x": x_sym, "f": f, "g": g, "p": p_sym},
-            {
-                "ipopt.print_level": IPOPT_VERBOSE_LEVEL,
-                "ipopt.hessian_approximation": "limited-memory",
-                "ipopt.acceptable_tol": 1e-1,
-                "ipopt.acceptable_dual_inf_tol": 1e-1,
-                "ipopt.acceptable_constr_viol_tol": 5e-3,
-                "ipopt.acceptable_iter": 1,
-                "ipopt.max_iter": 200,
-            },
+            self.ipopt_options,
         )
 
         self.nlp_solver = solver
@@ -793,7 +815,7 @@ class ProjectionPolicy(Policy):
         self.n_cond_params = n_cond_params
 
     def _solve_projection_batch(self, dofs_ref_batch, conditions):
-        """Solve projection NLP for a batch of reference DOFs using solver.map()."""
+        """Solve projection NLP for each batch element sequentially."""
         batch_size = dofs_ref_batch.shape[0]
 
         # Pack condition parameters (same for all batch elements)
@@ -811,13 +833,13 @@ class ProjectionPolicy(Policy):
         lbg = self.nlp_lbg
         ubg = self.nlp_ubg
 
-        if batch_size == 1:
-            sol = self.nlp_solver(x0=x0_batch, p=p_batch, lbg=lbg, ubg=ubg)
-        else:
-            mapped = self.nlp_solver.map(batch_size, "serial")
-            sol = mapped(x0=x0_batch, p=p_batch, lbg=lbg, ubg=ubg)
+        xs = []
+        for b in range(batch_size):
+            sol = self.nlp_solver(x0=x0_batch[:, b], p=p_batch[:, b], lbg=lbg, ubg=ubg)
+            self.record_ipopt_solve(self.nlp_solver.stats())
+            xs.append(np.array(sol["x"]).flatten())
 
-        return np.array(sol["x"]).T  # [batch_size, dofs]
+        return np.stack(xs)  # [batch_size, dofs]
 
     @torch.no_grad()
     def generate(self, conditions: Dict[Any, Any], batch_size: int = 1, **kwargs) -> Dict[str, Any]:
@@ -830,6 +852,7 @@ class ProjectionPolicy(Policy):
         ## Formulate the CaSaDi problem if necessary
         if not hasattr(self, "nlp_solver"):
             self.formulate(conditions)
+        self.reset_ipopt_stats()
 
         # START
         intermediates = []
@@ -1339,6 +1362,7 @@ class _SafeDiffuserBase(Policy):
         cbf_coefficient: CBF gain k (controls constraint enforcement strength).
         guidance_start_fraction: Fraction of steps before guidance begins.
         allow_qp: Use QP solver when possible (faster than IPOPT).
+        ipopt_options: Optional dict of IPOPT solver options merged over defaults.
     """
     def __init__(
         self,
@@ -1436,6 +1460,7 @@ class _SafeDiffuserBase(Policy):
                 self.cs_optim.set_value(
                     self.conditions_params[k], to_np(v.flatten())  # type: ignore
                 )
+        self.reset_ipopt_stats()
 
         # START
         intermediates = []
@@ -1495,9 +1520,14 @@ class _SafeDiffuserBase(Policy):
                         try:
                             solution = self.cs_optim.solve_limited()
                             xn_dofs = solution.value(self.x_next)
+                            self.record_ipopt_solve(self.cs_optim.stats())
                         except RuntimeError as e:
                             print(f"Solver failed with error: {e}.\nReturning last available value.")
                             xn_dofs = self.cs_optim.debug.value(self.x_next)
+                            try:
+                                self.record_ipopt_solve(self.cs_optim.debug.stats(), failed=True)
+                            except Exception:
+                                self.record_ipopt_solve(None, failed=True)
 
                         xn_dofs = torch.as_tensor(xn_dofs, dtype=xn_ref.dtype, device=xn_ref.device)
                         xn_list.append(self.env.dofs_to_matrix(xn_dofs, conditions=conditions))
@@ -1615,7 +1645,7 @@ class RoSPolicy(_SafeDiffuserBase):
         ## Objective
         projection_cost = cs.sumsqr(velocity - velocity_ref)
         cs_optim.minimize(projection_cost)
-        cs_optim.solver("ipopt", {"ipopt.print_level": IPOPT_VERBOSE_LEVEL, "ipopt.hessian_approximation": "limited-memory", "ipopt.acceptable_obj_change_tol": 1e-3, "ipopt.acceptable_tol": 1e-1, "ipopt.acceptable_dual_inf_tol": 1e-1, "ipopt.acceptable_constr_viol_tol": 5e-3, "ipopt.acceptable_iter": 1, "ipopt.max_iter": 200})
+        cs_optim.solver("ipopt", self.ipopt_options)
         self.cs_optim = cs_optim
         self.delta_t = delta_t
         self.x_current = x_current
@@ -1719,7 +1749,7 @@ class ReSPolicy(_SafeDiffuserBase):
         projection_cost = projection_cost + cs.sumsqr(cs.vertcat(*slacks))
         self.slack_vars = slacks
         cs_optim.minimize(projection_cost)
-        cs_optim.solver("ipopt", {"ipopt.print_level": IPOPT_VERBOSE_LEVEL, "ipopt.hessian_approximation": "limited-memory", "ipopt.acceptable_obj_change_tol": 1e-3, "ipopt.acceptable_tol": 1e-1, "ipopt.acceptable_dual_inf_tol": 1e-1, "ipopt.acceptable_constr_viol_tol": 5e-3, "ipopt.acceptable_iter": 1, "ipopt.max_iter": 200})
+        cs_optim.solver("ipopt", self.ipopt_options)
         self.cs_optim = cs_optim
         self.delta_t = delta_t
         self.x_current = x_current
@@ -1840,7 +1870,7 @@ class TVSPolicy(_SafeDiffuserBase):
         ## Objective
         projection_cost = cs.sumsqr(velocity - velocity_ref)
         cs_optim.minimize(projection_cost)
-        cs_optim.solver("ipopt", {"ipopt.print_level": IPOPT_VERBOSE_LEVEL, "ipopt.hessian_approximation": "limited-memory", "ipopt.acceptable_obj_change_tol": 1e-3, "ipopt.acceptable_tol": 1e-1, "ipopt.acceptable_dual_inf_tol": 1e-1, "ipopt.acceptable_constr_viol_tol": 5e-3, "ipopt.acceptable_iter": 1, "ipopt.max_iter": 200})
+        cs_optim.solver("ipopt", self.ipopt_options)
         self.cs_optim = cs_optim
         self.delta_t = delta_t
         self.x_current = x_current
@@ -1911,6 +1941,7 @@ class DiRecTPolicy(Policy):
     Args (policy_kwargs):
         guidance_start_fraction: Fraction of steps before optimization begins.
         control_penalty_weight: Regularization weight lambda for the MPC objective.
+        ipopt_options: Optional dict of IPOPT solver options merged over defaults.
     """
 
     def __init__(self, env, diffuser, sampling_steps, sampler_interpolation_coeff=0.0,
@@ -1954,7 +1985,7 @@ class DiRecTPolicy(Policy):
         ## Objective
         env_objective = self.env.generate_casadi_objective(x_sym, conditions_params)
         f = 0.5 * reg_weight_sym * cs.sumsqr(x_sym - x_ref_sym) - env_objective
-        solver = cs.nlpsol("prediction_mpc", "ipopt", {"x": x_sym, "f": f, "g": g, "p": p_sym}, {"ipopt.print_level": IPOPT_VERBOSE_LEVEL, "ipopt.hessian_approximation": "limited-memory", "ipopt.acceptable_tol": 1e-1, "ipopt.acceptable_dual_inf_tol": 1e-1, "ipopt.acceptable_constr_viol_tol": 5e-3, "ipopt.acceptable_iter": 1, "ipopt.max_iter": 200})
+        solver = cs.nlpsol("prediction_mpc", "ipopt", {"x": x_sym, "f": f, "g": g, "p": p_sym}, self.ipopt_options)
         self.nlp_solver = solver
         self.dofs = dofs
         self.nlp_lbg = np.array(lbg_list)
@@ -1962,19 +1993,19 @@ class DiRecTPolicy(Policy):
         self.n_cond_params = n_cond_params
 
     def _solve_mpc_batch(self, dofs_ref_batch, reg_weights, conditions):
-        """Solve MPC NLP for a batch using solver.map()."""
+        """Solve MPC NLP for each batch element sequentially."""
         batch_size = dofs_ref_batch.shape[0]
         cond_flat = np.concatenate([to_np(conditions[k]).flatten() for k in sorted(k for k in conditions if isinstance(k, int))])
         p_batch = np.column_stack([np.concatenate([dofs_ref_batch[b], [reg_weights[b]], cond_flat]) for b in range(batch_size)])
         x0_batch = dofs_ref_batch.T
         lbg = self.nlp_lbg
         ubg = self.nlp_ubg
-        if batch_size == 1:
-            sol = self.nlp_solver(x0=x0_batch, p=p_batch, lbg=lbg, ubg=ubg)
-        else:
-            mapped = self.nlp_solver.map(batch_size, "serial")
-            sol = mapped(x0=x0_batch, p=p_batch, lbg=lbg, ubg=ubg)
-        return np.array(sol["x"]).T
+        xs = []
+        for b in range(batch_size):
+            sol = self.nlp_solver(x0=x0_batch[:, b], p=p_batch[:, b], lbg=lbg, ubg=ubg)
+            self.record_ipopt_solve(self.nlp_solver.stats())
+            xs.append(np.array(sol["x"]).flatten())
+        return np.stack(xs)
 
     @torch.no_grad()
     def generate(self, conditions: Dict[Any, Any], batch_size: int = 1, **kwargs) -> Dict[str, Any]:
@@ -1985,6 +2016,7 @@ class DiRecTPolicy(Policy):
         ## Formulate the CaSaDi problem if necessary
         if not hasattr(self, "nlp_solver"):
             self.formulate(conditions)
+        self.reset_ipopt_stats()
         # START
         intermediates = []
         data_estimates = []

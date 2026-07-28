@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import copy
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import casadi as cs
 import numpy as np
@@ -29,7 +29,7 @@ def _build_and_solve(
     s0: np.ndarray,
     reg_weight: float = None,
     a_prev: np.ndarray = None,
-) -> np.ndarray:
+) -> Tuple[np.ndarray, str, int]:
     """Standalone function for parallel workers (must be picklable)."""
     proj = IpoptProjector(**config)
     return proj.project(X_ref, s0, reg_weight=reg_weight, a_prev=a_prev)
@@ -98,11 +98,9 @@ class IpoptProjector:
         # precompute index arrays into the flat DOF vector
         self._precompute_indices()
 
-        # solver options
+        # solver options (IPOPT defaults, output silencing only)
         self._solver_opts = {
             "ipopt.print_level": 0,
-            "ipopt.hessian_approximation": "limited-memory",
-            "ipopt.max_iter": 100,
             "ipopt.sb": "yes",
             "print_time": 0,
         }
@@ -277,7 +275,7 @@ class IpoptProjector:
         """Set the regularization weight for the tracking cost."""
         self._opti.set_value(self._reg_weight, w)
 
-    def project(self, X_ref: np.ndarray, s0: np.ndarray, reg_weight: float = None, a_prev: np.ndarray = None) -> np.ndarray:
+    def project(self, X_ref: np.ndarray, s0: np.ndarray, reg_weight: float = None, a_prev: np.ndarray = None) -> Tuple[np.ndarray, str, int]:
         """Project a single reference trajectory onto the feasible set.
 
         Args:
@@ -288,6 +286,8 @@ class IpoptProjector:
 
         Returns:
             X_proj: (dof,) projected DOF vector.
+            status: "optimal" if the solver converged, "failed" otherwise.
+            n_iters: number of IPOPT iterations spent on the solve.
         """
         X_ref = np.asarray(X_ref).flatten()
         s0 = np.asarray(s0).flatten()
@@ -308,11 +308,18 @@ class IpoptProjector:
             sol = self._opti.solve()
             X_proj = np.array(sol.value(self._X)).flatten()
             status = "optimal"
+            stats_src = self._opti
         except RuntimeError:
             X_proj = np.array(self._opti.debug.value(self._X)).flatten()
             status = "failed"
+            stats_src = self._opti.debug
 
-        return X_proj, status
+        try:
+            n_iters = int(stats_src.stats()["iter_count"])
+        except Exception:
+            n_iters = 0
+
+        return X_proj, status, n_iters
 
     def project_batch(
         self,
@@ -321,7 +328,7 @@ class IpoptProjector:
         n_workers: int = 1,
         reg_weight: float = None,
         a_prevs: np.ndarray = None,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, List[str], List[int]]:
         """Project a batch of trajectories in parallel.
 
         Args:
@@ -333,6 +340,8 @@ class IpoptProjector:
 
         Returns:
             X_projs: (batch, dof)
+            statuses: list of per-solve statuses ("optimal"/"failed").
+            iters: list of per-solve IPOPT iteration counts.
         """
         batch_size = X_refs.shape[0]
         assert X_refs.shape == (batch_size, self.dof)
@@ -341,12 +350,14 @@ class IpoptProjector:
         if n_workers <= 1:
             projs = []
             statuses = []
+            iters = []
             for i in range(batch_size):
                 ap = a_prevs[i] if a_prevs is not None else None
-                x_proj, status = self.project(X_refs[i], s0s[i], reg_weight=reg_weight, a_prev=ap)
+                x_proj, status, n_iters = self.project(X_refs[i], s0s[i], reg_weight=reg_weight, a_prev=ap)
                 projs.append(x_proj)
                 statuses.append(status)
-            return np.stack(projs), statuses
+                iters.append(n_iters)
+            return np.stack(projs), statuses, iters
 
         # parallel: build config dict for picklable worker function
         config = {
@@ -368,6 +379,7 @@ class IpoptProjector:
 
         results = [None] * batch_size
         statuses = [None] * batch_size
+        iters = [0] * batch_size
         with ProcessPoolExecutor(max_workers=n_workers) as pool:
             futures = {
                 pool.submit(
@@ -378,11 +390,12 @@ class IpoptProjector:
             }
             for future in as_completed(futures):
                 idx = futures[future]
-                x_proj, status = future.result()
+                x_proj, status, n_iters = future.result()
                 results[idx] = x_proj
                 statuses[idx] = status
+                iters[idx] = n_iters
 
-        return np.stack(results), statuses
+        return np.stack(results), statuses, iters
 
     # ------------------------------------------------------------------
     # Utilities

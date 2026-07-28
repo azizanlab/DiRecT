@@ -151,6 +151,9 @@ def run_batched_eval(envs, policy, cfg, normalizer=None, save_path=None):
     all_comp_times = [[] for _ in range(total_episodes)]
     all_planned_obs = [[] for _ in range(total_episodes)]  # list of predicted obs per replan
     all_plan_feasibility = [[] for _ in range(total_episodes)]  # True/False per replan
+    all_ipopt_iters = [[] for _ in range(total_episodes)]  # total IPOPT iters per replan
+    all_ipopt_failures = [[] for _ in range(total_episodes)]  # failed IPOPT solves per replan
+    all_ipopt_solves = [[] for _ in range(total_episodes)]  # IPOPT solve count per replan
 
     # per-slot state
     slot_episode = list(range(min(B, total_episodes)))  # which episode each slot runs
@@ -215,6 +218,10 @@ def run_batched_eval(envs, policy, cfg, normalizer=None, save_path=None):
                 all_plan_feasibility[ep].append(n_viol == 0)
                 if "computation_time" in info:
                     all_comp_times[ep].append(info["computation_time"] / len(need_replan))
+                if "ipopt_solves" in info:
+                    all_ipopt_iters[ep].append(float(info["ipopt_iters"][j]))
+                    all_ipopt_failures[ep].append(float(info["ipopt_failures"][j]))
+                    all_ipopt_solves[ep].append(float(info["ipopt_solves"][j]))
 
         # 3. step each active slot
         for i in range(B):
@@ -327,7 +334,7 @@ def run_batched_eval(envs, policy, cfg, normalizer=None, save_path=None):
                     slot_active[i] = False
 
     pbar.close()
-    return all_rollouts, all_successes, all_violations, all_rewards, all_comp_times, all_planned_obs, all_plan_feasibility
+    return all_rollouts, all_successes, all_violations, all_rewards, all_comp_times, all_planned_obs, all_plan_feasibility, all_ipopt_iters, all_ipopt_failures, all_ipopt_solves
 
 
 # ---------------------------------------------------------------------------
@@ -565,6 +572,9 @@ def evaluate(cfg: EvaluationConfig):
         computation_times,
         planned_observations,
         all_plan_feasibility,
+        ipopt_iters,
+        ipopt_failures,
+        ipopt_solves,
     ) = run_batched_eval(envs, policy, cfg, normalizer=normalizer, save_path=save_path)
 
     # --- per-run metrics ---
@@ -575,6 +585,7 @@ def evaluate(cfg: EvaluationConfig):
         steps = len(real_trajectories[i]) - 1
         safety = total_violations[i] == 0
         comp_times = computation_times[i]
+        n_solves = sum(ipopt_solves[i])
 
         trajectory_data.append({
             "run_id": i,
@@ -587,6 +598,12 @@ def evaluate(cfg: EvaluationConfig):
             "constraint_set": ("novel" if cfg.constraints else ""),
             "average_computation_time": (
                 float(np.mean(comp_times)) if comp_times else None
+            ),
+            "avg_ipopt_iters": (
+                sum(ipopt_iters[i]) / n_solves if n_solves > 0 else None
+            ),
+            "ipopt_failure_rate": (
+                sum(ipopt_failures[i]) / n_solves if n_solves > 0 else None
             ),
         })
 
@@ -609,6 +626,11 @@ def evaluate(cfg: EvaluationConfig):
     avg_rewards = np.mean([d["total_rewards"] for d in trajectory_data])
     comp_times_all = [d["average_computation_time"] for d in trajectory_data if d["average_computation_time"] is not None]
 
+    # global IPOPT statistics across all episodes (one "projection" = one solve)
+    total_ipopt_solves = sum(sum(s) for s in ipopt_solves)
+    total_ipopt_iters = sum(sum(s) for s in ipopt_iters)
+    total_ipopt_failures = sum(sum(s) for s in ipopt_failures)
+
     summary = {
         "exp_name": cfg.exp_name,
         "constraint_set": ("novel" if cfg.constraints else ""),
@@ -620,6 +642,12 @@ def evaluate(cfg: EvaluationConfig):
         "avg_violations": float(avg_violations),
         "avg_rewards": float(avg_rewards),
         "avg_computation_time": float(np.mean(comp_times_all)) if comp_times_all else None,
+        "avg_ipopt_iters": (
+            total_ipopt_iters / total_ipopt_solves if total_ipopt_solves > 0 else None
+        ),
+        "ipopt_failure_rate": (
+            total_ipopt_failures / total_ipopt_solves if total_ipopt_solves > 0 else None
+        ),
     }
 
     summary_path = os.path.join(save_path, "summary.json")
@@ -650,6 +678,9 @@ def evaluate(cfg: EvaluationConfig):
     print(f"Success rate: {summary['success_rate']:.1%} ({n_success}/{n_runs})")
     print(f"Safety rate:  {summary['safety_rate']:.1%} ({n_safe}/{n_runs})")
     print(f"Avg steps:    {summary['avg_steps']:.1f}")
+    if summary["avg_ipopt_iters"] is not None:
+        print(f"Avg IPOPT iters/projection: {summary['avg_ipopt_iters']:.1f}")
+        print(f"IPOPT failure rate: {summary['ipopt_failure_rate']:.1%} ({int(total_ipopt_failures)}/{int(total_ipopt_solves)})")
 
     # Plan feasibility summary
     total_plans = sum(len(f) for f in all_plan_feasibility)

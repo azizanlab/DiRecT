@@ -67,6 +67,7 @@ from mmd.models.projection.projectors import BaseProjector, ADMMProjectionOperat
 from mmd.coupling_costs.coupling_cost_functions import DummyCost, RobotCollisionCost
 from mmd.planners.single_agent.ipopt import IpoptProjector
 from mmd.planners.single_agent.jax_scp_admm import JaxScpAdmmProjector
+from mmd.planners.single_agent.projection_metrics import ProjectionMetricsRecorder
 
 logging.basicConfig(
     level=logging.INFO,
@@ -269,6 +270,10 @@ def direct_ddpm_sample_fn(
                         params=project_params,
                     )
                 t_project = timer_project.elapsed
+                pm = kwargs.get('proj_metrics')
+                if pm is not None:
+                    pm.record(int(t_single), x_hat_proj[:, 1:, :2],
+                              project_params, t_project)
                 x = x_hat_proj
         else:
             ## ---------------------- Tweedie's estimation ----------------##
@@ -299,6 +304,10 @@ def direct_ddpm_sample_fn(
                         params=project_params,
                     )
                 t_project = timer_project.elapsed
+                pm = kwargs.get('proj_metrics')
+                if pm is not None:
+                    pm.record(int(t_single), x_hat_proj_dofs,
+                              project_params, t_project)
                 x_hat_proj[:, 1:, :2] = x_hat_proj_dofs
 
             ## ----------------- Correct the next sample -----------------------
@@ -327,6 +336,134 @@ def direct_ddpm_sample_fn(
     else:
         return x, values
 ##### END DiRecT SAMPLING FN #####
+
+
+### PDM (PER-STEP LATENT PROJECTION) SAMPLING FUNCTION ###
+
+@torch.no_grad()
+def pdm_ddpm_sample_fn(
+        model, x, hard_conds, context, t,
+        guide=None,
+        projector: BaseProjector = None,
+        guide_kwargs={},
+        project_params=None,
+        n_guide_steps=1,
+        scale_grad_by_std=False,
+        t_start_guide=torch.inf,
+        t_start_projection=0,
+        noise_std_extra_schedule_fn=None,  # 'linear'
+        **kwargs
+):
+    """Projected Diffusion Model (PDM) step: identical to `direct_ddpm_sample_fn`
+    except the projection is applied directly to the noisy latent x_t after the
+    DDPM update, instead of DiRecT's Tweedie clean-space projection and
+    correction. Same gating (`t_start_projection`), same projector, same
+    guidance structure."""
+
+    t_single = t[0]
+    apply_guidance = (projector is not None) and (t_single < t_start_projection)
+    # By convention, a time less than zero gets zero noise. That is, sampling to update mean is computed to until t=0 and then only guidance and sampling, without updating the mean, is done.
+    if t_single < 0:
+        raise ValueError(
+            f"t must be non-negative for sampling. Got t = {t_single}.")
+        t = torch.zeros_like(t)
+
+    if t_single == 0:
+        # Not doing inpainting at t==0 to enforce projection constraints.
+        t_stps = []
+        for k in hard_conds.keys():
+            # x[..., H, D]
+            if isinstance(k, int) and k > 0 and k == x.shape[-2]-1:
+                t_stps.append(k)
+        max_t = max(t_stps) if t_stps else None
+        if max_t is not None:
+            max_t_hard_cond = {
+                max_t: hard_conds.pop(max_t)
+            }
+
+    with TimerCUDA() as timer_diffuse:
+        model_mean, _, model_log_variance = model.p_mean_variance(
+            x=x, hard_conds=hard_conds, context=context, t=t)
+    t_diffuse = timer_diffuse.elapsed
+
+    x = model_mean
+    model_log_variance = extract(
+        model.posterior_log_variance_clipped, t, x.shape)
+    model_std = torch.exp(0.5 * model_log_variance)
+    model_var = torch.exp(model_log_variance)
+
+    with TimerCUDA() as timer_coupling:
+        if guide is not None and t_single < t_start_guide:
+            logger.info('Running guidance step')
+            x = guide_gradient_steps(
+                x,
+                hard_conds=hard_conds,
+                guide=guide,
+                n_guide_steps=n_guide_steps,
+                scale_grad_by_std=scale_grad_by_std,
+                model_var=model_var,
+                **guide_kwargs
+            )
+    t_coupling = timer_coupling.elapsed
+
+    noise = torch.randn_like(x)
+    # No noise when t = 0.
+    noise[t == 0] = 0
+
+    # For smoother results, we can decay the noise standard deviation throughout the diffusion
+    # this is roughly equivalent to using a temperature in the prior distribution
+    if noise_std_extra_schedule_fn is None:
+        noise_std = 1.0
+    else:
+        noise_std = noise_std_extra_schedule_fn(t_single)
+
+    x = x + model_std * noise * noise_std
+
+    t_project = 0
+    x_before_proj = None
+    if apply_guidance:
+        logger.info(f'Running PDM projection iter {t_single}')
+        ## ---------------------- Per-step latent projection ----------------##
+        ## Project the noisy latent x_t directly onto the feasible set — no
+        x_before_proj = x.detach().cpu().clone() if kwargs.get('intermediates_log') is not None else None
+        assert project_params is not None, "Projector parameters must be provided."
+        assert 'dx_max' in project_params, "Projector parameters must include 'dx_max'."
+        assert 'pos_init' in project_params, "Projector parameters must include 'pos_init'."
+        if 'smoothness_weight' in project_params:
+            projector.smoothness_weight = float(project_params['smoothness_weight'])
+        with TimerCUDA() as timer_project:
+            x_proj_dofs = projector.project(
+                x[:, 1:, :2],
+                params=project_params,
+            )
+        t_project = timer_project.elapsed
+        pm = kwargs.get('proj_metrics')
+        if pm is not None:
+            pm.record(int(t_single), x_proj_dofs,
+                      project_params, t_project)
+        x[:, 1:, :2] = x_proj_dofs
+
+    # Optionally log intermediates for visualization/debugging
+    intermediates_log = kwargs.get('intermediates_log', None)
+    if intermediates_log is not None:
+        step_data = {'t': int(t_single), 'x': x.detach().cpu().clone()}
+        if apply_guidance and x_before_proj is not None:
+            step_data['x_before_proj'] = x_before_proj
+            step_data['x_after_proj'] = x.detach().cpu().clone()
+        intermediates_log.append(step_data)
+
+    values = None
+    time_elapsed = {
+        'diffuse': t_diffuse,
+        'coupling': t_coupling,
+        'project': t_project,
+    }
+
+    if 'timeit' in kwargs and kwargs['timeit']:
+        return x, values, time_elapsed
+    else:
+        return x, values
+##### END PDM SAMPLING FN #####
 
 
 PLANNER_ALGORITHMS = ['base', 'final']
@@ -362,7 +499,7 @@ class DiRecT(SingleAgentPlanner):
                  projection_args: Dict = None,
                  cost_func_param: Dict = {},
                  timeit: bool = False,
-                 projector_type: str = 'Ipopt',
+                 projector_type: str = 'JaxScpADMM',
                  start_projection_guidance: float = 0.0,
                  **kwargs
                  ) -> None:
@@ -725,6 +862,29 @@ class DiRecT(SingleAgentPlanner):
                 self.general_projector = ipopt_projector
             elif projector_type == 'JaxScpADMM':
                 self.general_projector = jax_projector
+        # Projection-metrics recorder (per-type violations / solver
+        # failures for the ablation). Enabled via PROJ_METRICS_OUT env
+        # var. Uses the SAME predicates as the final reported metrics
+        # (scripts/inference/inference_pcdiff.py): world-frame
+        # collision_detect at 2r, task.get_trajs_collision_and_free with
+        # the run's own interpolation factor, and calc_velocity on
+        # normalized positions vs vel_max + VEL_TOL. One evaluator for
+        # all optimizers, and its violations are violations by the
+        # main tables' own definition.
+        self.proj_metrics = None
+        if not use_vel_only_projector:
+            self.proj_metrics = ProjectionMetricsRecorder.from_env(
+                task=task,
+                robot_radius=robot.radius,          # WORLD units
+                pos_mins=pos_mins,
+                pos_range=pos_range,
+                n_agents=n_agents,
+                vel_max=proj_params['vel_max'],
+                dt=dt,
+                num_interpolation=ceil(
+                    n_support_points
+                    * factor_num_interpolated_points_for_collision),
+            )
         self.t_start_projection = t_start_projection
 
         self.recent_call_data = PlannerOutput()
@@ -743,11 +903,17 @@ class DiRecT(SingleAgentPlanner):
             t_start_guide=self.t_start_guide,
             t_start_projection=self.t_start_projection,
             noise_std_extra_schedule_fn=lambda x: 0.5,
+            proj_metrics=self.proj_metrics,
             timeit=timeit,
         )
 
         self.agent_batch_inds = torch.tensor_split(
             torch.arange(n_samples, device=device), n_agents)
+
+        # Sampling function used by run_constrained_inference. Subclasses
+        # (e.g. PDM) override this to change the projection strategy while
+        # keeping every other flag and hyperparameter identical.
+        self.sample_fn = direct_ddpm_sample_fn
 
     def __call__(self,
                  start_state_pos, goal_state_pos,
@@ -806,6 +972,9 @@ class DiRecT(SingleAgentPlanner):
             t_profile['others'] = t_total - t_inner_total
             self.recent_call_data.t_profile = t_profile
 
+        if getattr(self, 'proj_metrics', None) is not None:
+            self.proj_metrics.finalize_trial()
+
         return self.recent_call_data
 
     def update_start_goal_states(self, start_state_pos: torch.Tensor, goal_state_pos: torch.Tensor):
@@ -853,7 +1022,7 @@ class DiRecT(SingleAgentPlanner):
                     self.context, self.hard_conds,
                     n_samples=self.num_samples, horizon=self.n_support_points,
                     return_chain=True,
-                    sample_fn=direct_ddpm_sample_fn,
+                    sample_fn=self.sample_fn,
                     **self.sample_fn_kwargs,
                     n_diffusion_steps_without_noise=self.n_diffusion_steps_without_noise,
                     # ddim=True
@@ -863,7 +1032,7 @@ class DiRecT(SingleAgentPlanner):
                     self.context, self.hard_conds,
                     n_samples=self.num_samples, horizon=self.n_support_points,
                     return_chain=True,
-                    sample_fn=direct_ddpm_sample_fn,
+                    sample_fn=self.sample_fn,
                     **self.sample_fn_kwargs,
                     n_diffusion_steps_without_noise=self.n_diffusion_steps_without_noise,
                     # ddim=True
@@ -905,7 +1074,7 @@ class DiRecT(SingleAgentPlanner):
                 n_samples=self.num_samples,
                 horizon=self.n_support_points,
                 return_chain=True,
-                sample_fn=direct_ddpm_sample_fn,
+                sample_fn=self.sample_fn,
                 **self.sample_fn_kwargs,
                 n_diffusion_steps_without_noise=self.n_diffusion_steps_without_noise,
                 # ddim=True
@@ -1026,3 +1195,20 @@ class DiRecT(SingleAgentPlanner):
             anim_time=animation_duration,
             constraints=self.recent_call_data.constraints_l
         )
+
+
+class PDM(DiRecT):
+    """Projected Diffusion Model baseline: per-step projection of the noisy
+    latent x_t (cf. Christopher et al., "Constrained Synthesis with Projected
+    Diffusion Models").
+
+    Identical to DiRecT in every flag and hyperparameter (projector type,
+    t_start_projection gating, guidance config, noise schedule, configs) —
+    the only difference is the sampling function: after each DDPM update the
+    latent itself is projected onto the feasible set, instead of DiRecT's
+    Tweedie mapping to clean space, projection there, and correction back.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.sample_fn = pdm_ddpm_sample_fn

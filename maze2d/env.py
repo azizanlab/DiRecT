@@ -453,7 +453,7 @@ class Maze2dConstrainedEnv(gym.Env, nn.Module):
     def compute_constraint_ellipses(
         self, x: torch.Tensor, normalize: bool = False, margins: bool = True
     ) -> torch.Tensor:
-        del margins
+        margin = self.constraint_margin if margins else 0.0
         batch_size = x.shape[0]
         n_obstacles = self._obs_rx.shape[-1]  # type: ignore
         if n_obstacles == 0:
@@ -466,9 +466,9 @@ class Maze2dConstrainedEnv(gym.Env, nn.Module):
         x_term = ((x_pos - self._obs_cx) / self._obs_rx).abs().pow(self._obs_power)  # type: ignore
         y_term = ((y_pos - self._obs_cy) / self._obs_ry).abs().pow(self._obs_power)  # type: ignore
         if normalize:
-            constraint_values = (x_term + y_term).pow(1 / self._obs_power) - 1.0 # type: ignore
+            constraint_values = (x_term + y_term).pow(1 / self._obs_power) - 1.0 - margin # type: ignore
         else:
-            constraint_values = x_term + y_term - 1.0
+            constraint_values = x_term + y_term - 1.0 - margin
         return constraint_values.reshape(batch_size, -1)
 
     def compute_constraint_dynamics(self, x: torch.Tensor) -> torch.Tensor:
@@ -517,7 +517,8 @@ class Maze2dConstrainedEnv(gym.Env, nn.Module):
     def total_violations(self, x: torch.Tensor) -> torch.Tensor:
         if x.ndim == 2:
             x = x.view(1, *x.shape)
-        constraints = self.compute_constraint_ellipses(x).reshape(x.shape[0], x.shape[1], -1)
+        # margins=False: violation metrics measure the true obstacles, not the margined ones
+        constraints = self.compute_constraint_ellipses(x, margins=False).reshape(x.shape[0], x.shape[1], -1)
         total_violations = torch.any(constraints < 0, dim=-1).sum(-1)
         return total_violations
 

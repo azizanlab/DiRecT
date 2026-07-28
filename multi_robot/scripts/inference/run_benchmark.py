@@ -104,6 +104,7 @@ COST_FUNC_DEFAULTS = {
 # PCD projects at every step (no t_start_projection param in PCD class)
 PROJ_FRACTION_DIRECT  = 0.5     # DiRecT: JaxScpADMM on Tweedie
 PROJ_FRACTION_FINAL   = 0.5     # final: ignored (overridden to t=0 only in __init__)
+PROJ_FRACTION_PDM     = 0.5     # PDM: JaxScpADMM on the noisy latent (same gating as DiRecT)
 
 # ─── COST FUNCTION PARAMETERS ───
 COST_MARGIN_COEFF   = 1.9
@@ -134,6 +135,7 @@ ALL_METHODS = [
         'cd',
         'pcd',
         'direct',
+        'pdm',
         'final_projection',
         'mmd_cbs',
 ]
@@ -321,6 +323,36 @@ def run_direct(env_key, n_agents, vel_max, log_pth, dry_run=False):
     _run_experiment(config_path, args_list, log_pth, label, dry_run)
 
 
+def run_pdm(env_key, n_agents, vel_max, log_pth, dry_run=False):
+    """PDM: no guidance, JaxScpADMM per-step projection of the noisy latent.
+
+    Identical flags to run_direct except the planner class — the projection
+    is applied to x_t directly instead of the Tweedie clean estimate.
+    """
+    env = ENVS[env_key]
+    config_path = join(CONFIG_DIR, env['direct_config'])
+    label = f"PDM | env={env_key} agents={n_agents} vmax={vel_max}"
+
+    args_list = _common_args(n_agents, log_pth) + [
+        # ── Planner identity ──
+        f"--planner.single_agent.class=PDM",
+        f"--planner.single_agent.planner_alg=base",
+        f"--planner.single_agent.projector_type=JaxScpADMM",
+        # ── No guidance ──
+        f"--planner.single_agent.start_guide_steps_fraction=0.0",
+        f"--planner.single_agent.n_guide_steps=0",
+        f"--planner.single_agent.weight_grad_cost_constraints=0",
+        f"--planner.single_agent.weight_grad_cost_collision=0",
+        f"--planner.single_agent.weight_grad_cost_smoothness={GUIDE_WEIGHT_SMOOTH}",
+        # ── Projection ──
+        f"--planner.single_agent.start_projection_guidance={PROJ_FRACTION_PDM}",
+        f"--planner.projection.project_params.vel_max={vel_max}",
+        f"--planner.projection.project_params.smoothness_weight={env['direct_smoothness_weight']}",
+    ]
+
+    _run_experiment(config_path, args_list, log_pth, label, dry_run)
+
+
 def run_final_projection(env_key, n_agents, vel_max, log_pth, dry_run=False):
     """Final Projection: unguided diffusion + JaxScpADMM projection at last step only."""
     env = ENVS[env_key]
@@ -500,6 +532,13 @@ def main():
                         logger.info(f"\n[{run_i}/{n_runs}]")
                         run_direct(env, n_agents, vel_max, log_pth,
                                    dry_run=args.dry_run)
+
+                elif method == 'pdm':
+                    for vel_max in vmaxs:
+                        run_i += 1
+                        logger.info(f"\n[{run_i}/{n_runs}]")
+                        run_pdm(env, n_agents, vel_max, log_pth,
+                                dry_run=args.dry_run)
 
                 elif method == 'final_projection':
                     for vel_max in vmaxs:

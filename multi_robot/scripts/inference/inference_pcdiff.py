@@ -56,7 +56,7 @@ from mmd.models import TemporalUnet, UNET_DIM_MULTS
 from mmd.models.diffusion_models.guides import GuideManagerTrajectoriesWithVelocity
 from mmd.models.diffusion_models.sample_functions import guide_gradient_steps, ddpm_sample_fn
 from mmd.trainer import get_dataset, get_model
-from mmd.planners.single_agent import PCD, DiRecT
+from mmd.planners.single_agent import PCD, DiRecT, PDM
 from mmd.planners.multi_agent import DummyPlanning
 from mmd.common.constraints import MultiPointConstraint
 from mmd.common.conflicts import PointConflict
@@ -417,9 +417,9 @@ def run_planning_experiment(config: dict, comments: str = '', trial_number=0):
         'n_agents': num_agents,
     }
 
-    # DiRecT-specific args
-    if sa_planner_cfg['class'] == 'DiRecT':
-        low_level_planner_model_args['projector_type'] = sa_planner_cfg.get('projector_type', 'Ipopt')
+    # DiRecT-specific args (PDM shares the same flags)
+    if sa_planner_cfg['class'] in {'DiRecT', 'PDM'}:
+        low_level_planner_model_args['projector_type'] = sa_planner_cfg.get('projector_type', 'JaxScpADMM')
         low_level_planner_model_args['start_projection_guidance'] = sa_planner_cfg.get('start_projection_guidance', 0.0)
 
     high_level_planner_model_args = {
@@ -459,7 +459,7 @@ def run_planning_experiment(config: dict, comments: str = '', trial_number=0):
         'model_ids': reference_agent_model_ids,
         'transforms': reference_agent_transforms,
     })
-    if sa_planner_cfg['class'] in {"PCD", "DiRecT"}:
+    if sa_planner_cfg['class'] in {"PCD", "DiRecT", "PDM"}:
         ref_args['model_id'] = reference_agent_model_ids[0]
 
     reference_low_level_planner = low_level_planner_class(**ref_args)
@@ -491,7 +491,7 @@ def run_planning_experiment(config: dict, comments: str = '', trial_number=0):
         'model_ids': agent_model_ids_l[0],
         'transforms': agent_model_transforms_l[0]
     })
-    if sa_planner_cfg['class'] in {"PCD", "DiRecT"}:
+    if sa_planner_cfg['class'] in {"PCD", "DiRecT", "PDM"}:
         low_level_planner_args['model_id'] = agent_model_ids_l[0][0]
 
     low_level_planner_l = [low_level_planner_class(**low_level_planner_args)]

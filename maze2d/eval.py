@@ -501,6 +501,10 @@ class Evaluator:
                 run_dict["proxy_value"] = trajectory_data["proxy_value"][b : b + 1]
             if "computation_time" in trajectory_data:
                 run_dict["computation_time"] = trajectory_data["computation_time"] / batch_size
+            if "avg_ipopt_iters" in trajectory_data:
+                run_dict["avg_ipopt_iters"] = trajectory_data["avg_ipopt_iters"]
+            if "ipopt_failure_rate" in trajectory_data:
+                run_dict["ipopt_failure_rate"] = trajectory_data["ipopt_failure_rate"]
             if "total_control" in trajectory_data:
                 tc = trajectory_data["total_control"]
                 run_dict["total_control"] = tc[b] if isinstance(tc, torch.Tensor) and tc.dim() > 0 else tc

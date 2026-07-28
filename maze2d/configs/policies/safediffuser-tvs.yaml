@@ -12,9 +12,18 @@ proxy_objective_value_weight: 2.0
 proxy_constraint_penalty_weight: 0.1
 constraint_margin: 0.4
 policy_kwargs:
+  # Values adapted from discrete to continuous time formulation with time convention reversal [0 -> 1]
   cbf_coefficient: 256.0
-  guidance_start_fraction: 0.5
-  allow_qp: true
+  guidance_start_fraction: 0.5 # Start of guidance
+  allow_qp: false
+  # Sigmoid rescaled to match strength range and activation
   sigmoid_bias_fraction: 0.98
   sigmoid_input_scale: 256.0
   sigmoid_output_scale: 1.0
+  # ipopt_options: (Table 1 -- older faster options in narrow env)
+  #   ipopt.hessian_approximation: limited-memory
+  #   ipopt.max_iter: 200
+  #   ipopt.acceptable_constr_viol_tol: 5.0e-3
+  #   ipopt.acceptable_tol: 1.0e-1
+  #   ipopt.acceptable_dual_inf_tol: 1.0e-1
+  #   ipopt.acceptable_iter: 1

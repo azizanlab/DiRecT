@@ -4,15 +4,23 @@ time_discretization: uniform
 time_discretization_kwargs:
   prior_time_offset: 0.001
 sampler_interpolation_coeff: 1.0
-env_objective: []
+env_objective: # [] (Table 1)
+  - distance
 env_constraints:
   - dynamics
   - ellipses
 proxy_objective_value_weight: 2.0
 proxy_constraint_penalty_weight: 0.1
-constraint_margin: 0.1 # Reduced constraint margin for stability in narrow case
+constraint_margin: 0.4 # 0.1 -- Reduced constraint margin for stability in narrow case (Table 1)
 policy_kwargs:
-  guidance_start_fraction: 0.5
+  guidance_start_fraction: 0.5  # Gradeitn guidance start fraction
   guidance_iterations: 0
-  guidance_lr: 0.0
-  projection_start_fraction: 0.5
+  guidance_lr: 0.01
+  projection_start_fraction: 0.5 # Proj. start fraction
+  # ipopt_options: (Table 1 -- older faster options in narrow env)
+  #   ipopt.hessian_approximation: limited-memory
+  #   ipopt.max_iter: 200
+  #   ipopt.acceptable_constr_viol_tol: 5.0e-3
+  #   ipopt.acceptable_tol: 1.0e-1
+  #   ipopt.acceptable_dual_inf_tol: 1.0e-1
+  #   ipopt.acceptable_iter: 1

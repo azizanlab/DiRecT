@@ -12,8 +12,9 @@ env_constraints:
   - input_saturation
 proxy_objective_value_weight: 2.0
 proxy_constraint_penalty_weight: 0.1
-constraint_margin: 0.4
+constraint_margin: 0.4        # 0.0 (Table 1) 
 policy_kwargs:
-  guidance_start_fraction: 0.5
-  guidance_iterations: 5
-  guidance_lr: 0.1
+  # Impl. adapted from HardFlow
+  guidance_start_fraction: 0.5        # Guidance start fraction
+  guidance_iterations: 5              # Num. of steps per iteration   
+  guidance_lr: 0.1                    # Learning rate 

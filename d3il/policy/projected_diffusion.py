@@ -74,6 +74,11 @@ class ProjectedDiffusionPolicy(nn.Module):
         )
         x = apply_conditioning(x, conditions_torch, self.action_dim)
 
+        # per-element IPOPT statistics accumulated over the denoise loop
+        self._ipopt_solves = 0
+        self._ipopt_iters = np.zeros(batch_size)
+        self._ipopt_failures = np.zeros(batch_size)
+
         # time grid: t=1 (noisy) to t=0 (clean)
         timesteps = torch.linspace(1.0, 0.0, self.n_sampling_steps + 1, device=self.device)
 
@@ -136,6 +141,10 @@ class ProjectedDiffusionPolicy(nn.Module):
 
         t_end = time.time()
         info = {"computation_time": t_end - t_start}
+        if self._ipopt_solves > 0:
+            info["ipopt_solves"] = np.full(batch_size, float(self._ipopt_solves))
+            info["ipopt_iters"] = self._ipopt_iters
+            info["ipopt_failures"] = self._ipopt_failures
 
         if save_chain:
             chain = torch.stack(denoising_chain, dim=1)
@@ -164,7 +173,10 @@ class ProjectedDiffusionPolicy(nn.Module):
         s0s = x_np[:, 0, self.action_dim:]  # (B, state_dim)
 
         # solve in parallel across workers
-        dofs_proj, statuses = self.projector.project_batch(dofs, s0s, n_workers=self.n_projection_workers)
+        dofs_proj, statuses, iters = self.projector.project_batch(dofs, s0s, n_workers=self.n_projection_workers)
+        self._ipopt_solves += 1
+        self._ipopt_iters += np.asarray(iters, dtype=float)
+        self._ipopt_failures += np.asarray([s == "failed" for s in statuses], dtype=float)
 
         # convert back to full trajectories
         for b in range(B):

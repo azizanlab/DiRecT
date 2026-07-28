@@ -45,7 +45,7 @@ train:
   compile_disable: false
 
 eval:
-  num_random_repeats: 10
+  num_random_repeats: 100
   device: cuda
   use_float64: true
   fixed_start: true
